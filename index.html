@@ -807,7 +807,7 @@
     <footer>
       <div class="token-box">
         <div class="token-title">Токен чеклиста</div>
-        <p class="token-hint">Без регистрации. Скопируйте токен и вставьте его в другом браузере — отметки перенесутся.</p>
+        <p class="token-hint">Без регистрации. Новый короткий токен можно копировать как есть. Старые токены вида kc1. тоже принимаются.</p>
         <div class="token-row">
           <input id="tokenOut" type="text" readonly spellcheck="false" />
           <button class="ghost" id="copyToken" type="button">Копировать</button>
@@ -869,28 +869,58 @@ const KEY = "kinochecklist:v1";
       ];
     }
 
-    function encodeToken(watched) {
+    const B32 = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+    function toB32(bytes) {
+      let acc = 0, bits = 0, out = "";
+      for (const b of bytes) {
+        acc = (acc << 8) | b;
+        bits += 8;
+        while (bits >= 5) {
+          bits -= 5;
+          out += B32[(acc >> bits) & 31];
+        }
+      }
+      if (bits) out += B32[(acc << (5 - bits)) & 31];
+      return out;
+    }
+
+    function fromB32(text) {
+      const s = String(text).toUpperCase().replace(/0/g, "O").replace(/1/g, "I").replace(/[^2-9A-Z]/g, "");
+      let acc = 0, bits = 0;
+      const out = [];
+      for (const ch of s) {
+        const v = B32.indexOf(ch);
+        if (v < 0) continue;
+        acc = (acc << 5) | v;
+        bits += 5;
+        if (bits >= 8) {
+          bits -= 8;
+          out.push((acc >> bits) & 255);
+        }
+      }
+      return out;
+    }
+
+    function groupToken(s) {
+      return s.match(/.{1,4}/g).join("-");
+    }
+
+    function bitsFromWatched(watched) {
       const bytes = new Uint8Array(63);
       for (const id of watched) {
         if (id < 1 || id > 500) continue;
         const i = id - 1;
         bytes[i >> 3] |= 1 << (i & 7);
       }
-      let bin = "";
-      for (const b of bytes) bin += String.fromCharCode(b);
-      return "kc1." + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+      return bytes;
     }
 
-    function decodeToken(token) {
-      const raw = String(token || "").trim();
-      const body = raw.startsWith("kc1.") ? raw.slice(4) : raw;
-      if (!body) throw new Error("empty");
-      const b64 = body.replace(/-/g, "+").replace(/_/g, "/");
-      const pad = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-      const bin = atob(pad);
+    function watchedFromBits(bytes) {
       const watched = new Set();
-      for (let i = 0; i < bin.length && i < 63; i++) {
-        const v = bin.charCodeAt(i);
+      const n = Math.min(bytes.length, 63);
+      for (let i = 0; i < n; i++) {
+        const v = bytes[i];
         for (let bit = 0; bit < 8; bit++) {
           if (v & (1 << bit)) {
             const id = i * 8 + bit + 1;
@@ -899,6 +929,68 @@ const KEY = "kinochecklist:v1";
         }
       }
       return watched;
+    }
+
+    function encodeList(watched) {
+      const ids = [...watched].filter((id) => id >= 1 && id <= 500).sort((a, b) => a - b);
+      const bytes = [];
+      let prev = 0;
+      for (const id of ids) {
+        let d = id - prev;
+        prev = id;
+        while (d >= 128) {
+          bytes.push((d & 127) | 128);
+          d >>= 7;
+        }
+        bytes.push(d);
+      }
+      return bytes;
+    }
+
+    function decodeList(bytes) {
+      const watched = new Set();
+      let i = 0, prev = 0;
+      while (i < bytes.length) {
+        let d = 0, shift = 0;
+        while (i < bytes.length) {
+          const b = bytes[i++];
+          d |= (b & 127) << shift;
+          if ((b & 128) === 0) break;
+          shift += 7;
+        }
+        prev += d;
+        if (prev >= 1 && prev <= 500) watched.add(prev);
+        else break;
+      }
+      return watched;
+    }
+
+    function encodeToken(watched) {
+      if (!watched.size) return "K2-0";
+      if (watched.size <= 160) return "K2-" + groupToken(toB32(encodeList(watched)));
+      const bits = bitsFromWatched(watched);
+      return "KB-" + groupToken(toB32(bits));
+    }
+
+    function decodeLegacy(body) {
+      const b64 = body.replace(/-/g, "+").replace(/_/g, "/");
+      const pad = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+      const bin = atob(pad);
+      const bytes = [];
+      for (let i = 0; i < bin.length; i++) bytes.push(bin.charCodeAt(i));
+      return watchedFromBits(bytes);
+    }
+
+    function decodeToken(token) {
+      const raw = String(token || "").trim();
+      if (!raw) throw new Error("empty");
+      const compact = raw.replace(/\s+/g, "");
+      const upper = compact.toUpperCase();
+      if (upper === "K2-0" || upper === "K2") return new Set();
+      if (/^KC1\./i.test(compact)) return decodeLegacy(compact.slice(4));
+      if (/^K2-/i.test(upper)) return decodeList(fromB32(upper.slice(3)));
+      if (/^KB-/i.test(upper)) return watchedFromBits(fromB32(upper.slice(3)));
+      return decodeLegacy(compact);
     }
 
     function refreshToken() {
