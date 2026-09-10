@@ -753,6 +753,7 @@
       margin-bottom: 8px;
     }
     .collage-status { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+    .collage-card .ghost { margin-top: 14px; width: 100%; }
 
     .token-box {
       width: min(560px, 100%);
@@ -995,6 +996,7 @@
         <div class="collage-title">Собираю коллаж</div>
         <div class="collage-status" id="collageStatus">Готовлю постеры…</div>
         <div class="bar"><i id="collageBar"></i></div>
+        <button class="ghost" id="collageCancel" type="button">Отмена</button>
       </div>
     </div>
 
@@ -1568,11 +1570,12 @@ const KEY = "kinochecklist:v1";
       });
     }
 
-    async function mapPool(items, limit, fn) {
+    async function mapPool(items, limit, fn, cancelled) {
       const out = new Array(items.length);
       let i = 0;
       async function worker() {
         while (i < items.length) {
+          if (cancelled && cancelled()) return;
           const idx = i++;
           out[idx] = await fn(items[idx], idx);
         }
@@ -1581,10 +1584,17 @@ const KEY = "kinochecklist:v1";
       return out;
     }
 
+    let collageAbort = false;
+    document.getElementById("collageCancel").addEventListener("click", () => {
+      collageAbort = true;
+      document.getElementById("collageStatus").textContent = "Отменяю…";
+      document.getElementById("collageOverlay").hidden = true;
+    });
     document.getElementById("collageBtn").addEventListener("click", async () => {
       const overlay = document.getElementById("collageOverlay");
       const status = document.getElementById("collageStatus");
       const bar = document.getElementById("collageBar");
+      collageAbort = false;
       overlay.hidden = false;
       bar.style.width = "2%";
       status.textContent = "Загружаю постеры…";
@@ -1622,6 +1632,7 @@ const KEY = "kinochecklist:v1";
 
       let loaded = 0;
       const posters = await mapPool(MOVIES, 8, async (m) => {
+        if (collageAbort) return null;
         const urls = posterUrls(m.kp);
         let img = await loadPoster(urls[0]);
         if (!img && urls[1]) img = await loadPoster(urls[1]);
@@ -1629,8 +1640,9 @@ const KEY = "kinochecklist:v1";
         bar.style.width = Math.round((loaded / MOVIES.length) * 85) + "%";
         if (loaded % 20 === 0) status.textContent = "Постеры " + loaded + " из " + MOVIES.length;
         return img;
-      });
+      }, () => collageAbort);
 
+      if (collageAbort) return;
       status.textContent = "Рисую шапку и сетку…";
 
       ctx.textAlign = "left";
@@ -1699,6 +1711,7 @@ const KEY = "kinochecklist:v1";
         }
       }
 
+      if (collageAbort) return;
       bar.style.width = "100%";
       status.textContent = "Сохраняю PNG…";
       try {
