@@ -159,6 +159,22 @@
       outline: none;
     }
     .search input:focus { border-color: var(--gold-dim); }
+
+    .search input[type="search"]::-webkit-search-cancel-button {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+      cursor: pointer;
+      background: var(--gold);
+      mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3 10.6 10.6 16.9 4.3z'/></svg>") center / 14px 14px no-repeat;
+      -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3 10.6 10.6 16.9 4.3z'/></svg>") center / 14px 14px no-repeat;
+    }
+    .search input[type="search"]::-webkit-search-decoration {
+      -webkit-appearance: none;
+    }
+
     .search svg {
       position: absolute;
       left: 13px;
@@ -614,6 +630,33 @@
       gap: 14px;
     }
 
+
+    .collage-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5,5,8,0.72);
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .collage-overlay[hidden] { display: none; }
+    .collage-card {
+      width: min(420px, 100%);
+      background: #14141c;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px 20px 18px;
+      box-shadow: var(--shadow);
+    }
+    .collage-title {
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .collage-status { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+
     .token-box {
       width: min(560px, 100%);
       text-align: left;
@@ -800,6 +843,15 @@
         </div>
       </div>
       <button class="ghost random" id="randomBtn" title="Случайный непросмотренный фильм">Случайный фильм</button>
+      <button class="ghost" id="collageBtn" type="button" title="Скачать сетку постеров">Скачать коллаж</button>
+    </div>
+
+    <div class="collage-overlay" id="collageOverlay" hidden>
+      <div class="collage-card">
+        <div class="collage-title">Собираю коллаж</div>
+        <div class="collage-status" id="collageStatus">Готовлю постеры…</div>
+        <div class="bar"><i id="collageBar"></i></div>
+      </div>
     </div>
 
     <div class="list" id="list"></div>
@@ -1223,6 +1275,182 @@ const KEY = "kinochecklist:v1";
         card.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     });
+
+
+    function loadPoster(url) {
+      return new Promise((resolve) => {
+        const tryUrl = (src, useCors) => {
+          const img = new Image();
+          if (useCors) img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = src;
+        };
+        const proxy = "https://wsrv.nl/?url=" + encodeURIComponent(url) + "&w=240&h=360&fit=cover&output=png";
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => {
+          const img2 = new Image();
+          img2.crossOrigin = "anonymous";
+          img2.onload = () => resolve(img2);
+          img2.onerror = () => resolve(null);
+          img2.src = proxy;
+        };
+        img.src = url;
+      });
+    }
+
+    async function mapPool(items, limit, fn) {
+      const out = new Array(items.length);
+      let i = 0;
+      async function worker() {
+        while (i < items.length) {
+          const idx = i++;
+          out[idx] = await fn(items[idx], idx);
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+      return out;
+    }
+
+    document.getElementById("collageBtn").addEventListener("click", async () => {
+      const overlay = document.getElementById("collageOverlay");
+      const status = document.getElementById("collageStatus");
+      const bar = document.getElementById("collageBar");
+      overlay.hidden = false;
+      bar.style.width = "2%";
+      status.textContent = "Загружаю постеры…";
+
+      const cols = 25;
+      const rows = 20;
+      const cellW = 120;
+      const cellH = 180;
+      const gap = 0;
+      const pad = 28;
+      const header = 220;
+      const gridW = cols * cellW + (cols - 1) * gap;
+      const gridH = rows * cellH + (rows - 1) * gap;
+      const width = pad * 2 + gridW;
+      const height = header + gridH + pad;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+
+      const bg = ctx.createLinearGradient(0, 0, width, height);
+      bg.addColorStop(0, "#0c0c12");
+      bg.addColorStop(0.45, "#09090d");
+      bg.addColorStop(1, "#0b0a14");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(228, 192, 106, 0.06)";
+      ctx.beginPath();
+      ctx.ellipse(220, 0, 420, 180, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(90, 70, 180, 0.10)";
+      ctx.beginPath();
+      ctx.ellipse(width - 80, 20, 360, 160, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      let loaded = 0;
+      const posters = await mapPool(MOVIES, 8, async (m) => {
+        const urls = posterUrls(m.kp);
+        let img = await loadPoster(urls[0]);
+        if (!img && urls[1]) img = await loadPoster(urls[1]);
+        loaded++;
+        bar.style.width = Math.round((loaded / MOVIES.length) * 85) + "%";
+        if (loaded % 20 === 0) status.textContent = "Постеры " + loaded + " из " + MOVIES.length;
+        return img;
+      });
+
+      status.textContent = "Рисую шапку и сетку…";
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#e4c06a";
+      ctx.font = "700 22px Manrope, system-ui, sans-serif";
+      ctx.fillText("ТОП-500 КИНОПОИСКА", pad, 78);
+
+      ctx.font = "700 92px 'Playfair Display', Georgia, serif";
+      ctx.fillStyle = "#f3f1ea";
+      ctx.fillText("Кино", pad, 176);
+      const titleW = ctx.measureText("Кино").width;
+      ctx.fillStyle = "#e4c06a";
+      ctx.font = "italic 700 92px 'Playfair Display', Georgia, serif";
+      ctx.fillText("чеклист", pad + titleW + 4, 176);
+
+      const cardW = 420;
+      const cardH = 168;
+      const cx = width - pad - cardW;
+      const cy = 48;
+      ctx.fillStyle = "#12121a";
+      ctx.strokeStyle = "#262633";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(cx, cy, cardW, cardH, 22);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#f3f1ea";
+      ctx.font = "800 72px Manrope, system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(String(state.watched.size), cx + 28, cy + 78);
+      const numW = ctx.measureText(String(state.watched.size)).width;
+      ctx.fillStyle = "#8d8b97";
+      ctx.font = "500 18px Manrope, system-ui, sans-serif";
+      ctx.fillText("из " + MOVIES.length, cx + 36 + numW, cy + 68);
+      const barX = cx + 28, barY = cy + 96, barW = cardW - 56, barH = 10;
+      ctx.fillStyle = "#232330";
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, barW, barH, 8);
+      ctx.fill();
+      const pct = state.watched.size / MOVIES.length;
+      const fill = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      fill.addColorStop(0, "#c9a24a");
+      fill.addColorStop(1, "#f0d48a");
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, Math.max(pct * barW, pct ? 8 : 0), barH, 8);
+      ctx.fill();
+      ctx.fillStyle = "#f3f1ea";
+      ctx.font = "700 22px Manrope, system-ui, sans-serif";
+      ctx.fillText(Math.round(pct * 100) + "% просмотрено", barX, cy + 136);
+
+      for (let i = 0; i < MOVIES.length; i++) {
+        const c = i % cols;
+        const r = Math.floor(i / cols);
+        const x = pad + c * (cellW + gap);
+        const y = header + r * (cellH + gap);
+        const img = posters[i];
+        if (img) ctx.drawImage(img, x, y, cellW, cellH);
+        else {
+          ctx.fillStyle = "#d8d8de";
+          ctx.fillRect(x, y, cellW, cellH);
+        }
+        if (!state.watched.has(MOVIES[i].id)) {
+          ctx.fillStyle = "rgba(8, 8, 12, 0.72)";
+          ctx.fillRect(x, y, cellW, cellH);
+        }
+      }
+
+      bar.style.width = "100%";
+      status.textContent = "Сохраняю PNG…";
+      try {
+        const blob = await new Promise((resolve, reject) => {
+          canvas.toBlob((b) => b ? resolve(b) : reject(new Error("blob")), "image/png");
+        });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "kinochecklist-top500.png";
+        a.click();
+        URL.revokeObjectURL(a.href);
+        status.textContent = "Готово";
+      } catch (err) {
+        status.textContent = "Не удалось сохранить: браузер заблокировал картинки. Попробуйте ещё раз.";
+        return;
+      }
+      setTimeout(() => { overlay.hidden = true; }, 700);
+    });
+
 
     document.getElementById("copyToken").addEventListener("click", async () => {
       const val = document.getElementById("tokenOut").value;
