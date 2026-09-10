@@ -234,13 +234,14 @@
     .filter-wrap.open .filter-backdrop { display: block; }
     .filter-panel {
       display: none;
-      position: absolute;
-      top: calc(100% + 8px);
+      position: fixed;
+      top: 72px;
       left: auto;
-      right: 0;
-      width: min(640px, calc(100vw - 40px));
-      max-height: min(78vh, 720px);
+      right: 16px;
+      width: min(640px, calc(100vw - 24px));
+      max-height: calc(100dvh - 24px);
       overflow: auto;
+      overscroll-behavior: contain;
       background: #14141c;
       border: 1px solid var(--line);
       border-radius: 18px;
@@ -301,8 +302,8 @@
       padding-right: 4px;
     }
     .chips.genres {
-      max-height: 148px;
-      overflow: auto;
+      max-height: none;
+      overflow: visible;
     }
     .chips.genres .chip {
       padding: 7px 11px;
@@ -450,11 +451,16 @@
       position: relative;
     }
     .poster-wrap img {
+      position: relative;
+      z-index: 1;
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
+      background: #0e0e14;
     }
+    .poster-wrap.has-img .ph,
+    .rand-poster.has-img .ph { display: none; }
     .poster-wrap .ph {
       position: absolute;
       inset: 0;
@@ -631,6 +637,81 @@
     }
 
 
+
+    .rand-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5,5,8,0.72);
+      z-index: 70;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+    .rand-overlay[hidden] { display: none; }
+    .rand-modal {
+      width: min(760px, 100%);
+      max-height: min(88dvh, 820px);
+      overflow: auto;
+      background: #14141c;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .rand-body {
+      display: grid;
+      grid-template-columns: 168px 1fr;
+      gap: 18px;
+    }
+    .rand-poster {
+      position: relative;
+      width: 168px;
+      aspect-ratio: 2 / 3;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0e0e14;
+    }
+    .rand-poster img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; background: #0e0e14; }
+    .rand-rank { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+    .rand-info h2 {
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: clamp(24px, 4vw, 34px);
+      line-height: 1.15;
+      margin-bottom: 4px;
+    }
+    .rand-orig { color: var(--muted); margin-bottom: 8px; }
+    .rand-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .rand-meta span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 13px;
+    }
+    .rand-meta .rating { color: var(--gold); font-weight: 700; }
+    .rand-meta a.kp-link {
+      border: 1px solid rgba(228, 192, 106, 0.35);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 13px;
+      color: var(--gold);
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .rand-meta a.kp-link:hover { background: var(--gold); color: #1a1408; }
+    .rand-plot { line-height: 1.55; margin-bottom: 12px; }
+    .rand-facts { color: var(--muted); font-size: 14px; display: grid; gap: 4px; }
+    .rand-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 640px) {
+      .rand-body { grid-template-columns: 1fr; }
+      .rand-poster { width: 140px; }
+    }
+
     .collage-overlay {
       position: fixed;
       inset: 0;
@@ -709,14 +790,10 @@
 
     @media (max-width: 720px) {
       .filter-panel {
-        position: fixed;
-        top: auto;
-        left: 12px;
-        right: 12px;
-        bottom: max(12px, env(safe-area-inset-bottom));
+        left: 12px !important;
+        right: 12px !important;
         width: auto;
         max-width: none;
-        max-height: min(82dvh, 640px);
         border-radius: 20px;
       }
       .filter-head {
@@ -812,6 +889,57 @@
             </div>
           </div>
           <div class="filter-section">
+            <div class="filter-label">Страна — только одна</div>
+            <div class="chips genres" id="countries">
+              <button class="chip" data-country="США">США</button>
+              <button class="chip" data-country="Великобритания">Великобритания</button>
+              <button class="chip" data-country="Россия">Россия</button>
+              <button class="chip" data-country="СССР">СССР</button>
+              <button class="chip" data-country="Франция">Франция</button>
+              <button class="chip" data-country="Германия">Германия</button>
+              <button class="chip" data-country="Канада">Канада</button>
+              <button class="chip" data-country="Япония">Япония</button>
+              <button class="chip" data-country="Новая Зеландия">Новая Зеландия</button>
+              <button class="chip" data-country="Испания">Испания</button>
+              <button class="chip" data-country="Гонконг">Гонконг</button>
+              <button class="chip" data-country="Италия">Италия</button>
+              <button class="chip" data-country="Мексика">Мексика</button>
+              <button class="chip" data-country="Китай">Китай</button>
+              <button class="chip" data-country="Австралия">Австралия</button>
+              <button class="chip" data-country="Корея Южная">Корея Южная</button>
+              <button class="chip" data-country="Чехия">Чехия</button>
+              <button class="chip" data-country="Швеция">Швеция</button>
+              <button class="chip" data-country="Индия">Индия</button>
+              <button class="chip" data-country="Бельгия">Бельгия</button>
+              <button class="chip" data-country="Венгрия">Венгрия</button>
+              <button class="chip" data-country="Беларусь">Беларусь</button>
+              <button class="chip" data-country="Швейцария">Швейцария</button>
+              <button class="chip" data-country="Дания">Дания</button>
+              <button class="chip" data-country="Болгария">Болгария</button>
+              <button class="chip" data-country="Норвегия">Норвегия</button>
+              <button class="chip" data-country="Таиланд">Таиланд</button>
+              <button class="chip" data-country="Иордания">Иордания</button>
+              <button class="chip" data-country="Польша">Польша</button>
+              <button class="chip" data-country="Ирландия">Ирландия</button>
+              <button class="chip" data-country="Мальта">Мальта</button>
+              <button class="chip" data-country="Марокко">Марокко</button>
+              <button class="chip" data-country="Сербия">Сербия</button>
+              <button class="chip" data-country="Нидерланды">Нидерланды</button>
+              <button class="chip" data-country="Финляндия">Финляндия</button>
+              <button class="chip" data-country="ОАЭ">ОАЭ</button>
+              <button class="chip" data-country="Гамбия">Гамбия</button>
+              <button class="chip" data-country="Кыргызстан">Кыргызстан</button>
+              <button class="chip" data-country="Исландия">Исландия</button>
+              <button class="chip" data-country="Югославия">Югославия</button>
+              <button class="chip" data-country="Люксембург">Люксембург</button>
+              <button class="chip" data-country="Бразилия">Бразилия</button>
+              <button class="chip" data-country="Латвия">Латвия</button>
+              <button class="chip" data-country="Аргентина">Аргентина</button>
+              <button class="chip" data-country="Багамы">Багамы</button>
+              <button class="chip" data-country="ЮАР">ЮАР</button>
+            </div>
+          </div>
+          <div class="filter-section">
             <div class="filter-label">Сортировка</div>
             <select id="sort">
               <option value="rank">По месту в топе</option>
@@ -854,6 +982,29 @@
       </div>
     </div>
 
+    <div class="rand-overlay" id="randOverlay" hidden>
+      <div class="rand-modal" role="dialog" aria-modal="true">
+        <div class="rand-body">
+          <div class="rand-poster">
+            <div class="ph">постер</div>
+            <img id="randPoster" alt="" />
+          </div>
+          <div class="rand-info">
+            <div class="rand-rank" id="randRank"></div>
+            <h2 id="randTitle"></h2>
+            <div class="rand-orig" id="randOrig"></div>
+            <div class="rand-meta" id="randMeta"></div>
+            <p class="rand-plot" id="randPlot"></p>
+            <div class="rand-facts" id="randFacts"></div>
+          </div>
+        </div>
+        <div class="rand-actions">
+          <button class="ghost random" id="randNext" type="button">Следующий фильм</button>
+          <button class="ghost" id="randClose" type="button">Закрыть</button>
+        </div>
+      </div>
+    </div>
+
     <div class="list" id="list"></div>
     <div class="empty" id="empty" hidden>Ничего не найдено</div>
     <footer>
@@ -892,7 +1043,8 @@ const KEY = "kinochecklist:v1";
       yearMax: YEAR_MAX,
       timeMin: TIME_MIN,
       timeMax: TIME_MAX,
-      genres: new Set()
+      genres: new Set(),
+      country: ""
     };
 
     const $list = document.getElementById("list");
@@ -907,6 +1059,10 @@ const KEY = "kinochecklist:v1";
       m._mins = mm ? Number(mm[1]) : 0;
       m._genres = String(fact.genre || "")
         .split(",")
+        .map((g) => g.trim())
+        .filter((g) => g && g !== "—");
+      m._countries = String(fact.country || "")
+        .split(/[,/]/)
         .map((g) => g.trim())
         .filter((g) => g && g !== "—");
       m._q = ((m.title || "") + " " + (m.orig || "") + " " + (m._year || "") + " " + m.id)
@@ -1080,7 +1236,7 @@ const KEY = "kinochecklist:v1";
       let rows = MOVIES;
       const yearFull = state.yearMin === YEAR_MIN && state.yearMax === YEAR_MAX;
       const timeFull = state.timeMin === TIME_MIN && state.timeMax === TIME_MAX;
-      if (state.filter !== "all" || q || !yearFull || !timeFull || state.genres.size) {
+      if (state.filter !== "all" || q || !yearFull || !timeFull || state.genres.size || state.country) {
         rows = MOVIES.filter((m) => {
           const done = state.watched.has(m.id);
           if (state.filter === "todo" && done) return false;
@@ -1093,6 +1249,7 @@ const KEY = "kinochecklist:v1";
               if (!m._genres.includes(g)) return false;
             }
           }
+          if (state.country && !m._countries.includes(state.country)) return false;
           return true;
         });
       }
@@ -1206,11 +1363,21 @@ const KEY = "kinochecklist:v1";
       if (!card.querySelector(".details") && movie) card.insertAdjacentHTML("beforeend", detailsHtml(movie));
     });
 
+    $list.addEventListener("load", (e) => {
+      const img = e.target;
+      if (img.tagName !== "IMG") return;
+      const wrap = img.closest(".poster-wrap");
+      if (wrap) wrap.classList.add("has-img");
+    }, true);
     $list.addEventListener("error", (e) => {
       const img = e.target;
       if (img.tagName !== "IMG") return;
       const rest = (img.dataset.fallbacks || "").split("|").filter(Boolean);
-      if (!rest.length) { img.style.display = "none"; return; }
+      if (!rest.length) {
+        img.style.display = "none";
+        img.closest(".poster-wrap") && img.closest(".poster-wrap").classList.remove("has-img");
+        return;
+      }
       img.dataset.fallbacks = rest.slice(1).join("|");
       img.src = rest[0];
     }, true);
@@ -1244,8 +1411,20 @@ const KEY = "kinochecklist:v1";
       render();
     });
 
-    document.getElementById("randomBtn").addEventListener("click", () => {
-      const pool = MOVIES.filter((m) => {
+    document.getElementById("countries").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-country]");
+      if (!btn) return;
+      const c = btn.dataset.country;
+      state.country = state.country === c ? "" : c;
+      document.querySelectorAll("#countries .chip").forEach((x) => {
+        x.classList.toggle("active", x.dataset.country === state.country);
+      });
+      render();
+    });
+
+    function randomPool(exceptId) {
+      return MOVIES.filter((m) => {
+        if (exceptId && m.id === exceptId) return false;
         if (state.watched.has(m.id)) return false;
         if (m._year && (m._year < state.yearMin || m._year > state.yearMax)) return false;
         if (m._mins && (m._mins < state.timeMin || m._mins > state.timeMax)) return false;
@@ -1254,26 +1433,72 @@ const KEY = "kinochecklist:v1";
             if (!m._genres.includes(g)) return false;
           }
         }
+        if (state.country && !m._countries.includes(state.country)) return false;
         return true;
       });
+    }
+
+    let randCurrent = null;
+
+    function showRandomMovie(movie) {
+      randCurrent = movie;
+      const f = FACTS[movie.kp] || FACTS[String(movie.kp)] || {};
+      document.getElementById("randRank").textContent = "№ " + movie.id + " в топ-500";
+      document.getElementById("randTitle").textContent = movie.title;
+      document.getElementById("randOrig").textContent = movie.orig && movie.orig !== movie.title ? movie.orig : "";
+      document.getElementById("randMeta").innerHTML =
+        "<span>" + (movie._year || movie.year || "—") + "</span>" +
+        "<span class=\"rating\">" + movie.rating.toFixed(1) + "</span>" +
+        (f.length ? "<span>" + escapeHtml(f.length) + "</span>" : "") +
+        "<a class=\"kp-link\" href=\"" + movie.url + "\" target=\"_blank\" rel=\"noopener\">Кинопоиск ↗</a>";
+      document.getElementById("randPlot").textContent = movie.short || "Нет короткого описания.";
+      const bits = [];
+      if (f.director) bits.push("Режиссёр: " + f.director);
+      if (f.genre) bits.push("Жанр: " + f.genre);
+      if (f.country) bits.push("Страна: " + f.country);
+      document.getElementById("randFacts").innerHTML = bits.map((x) => "<div>" + escapeHtml(x) + "</div>").join("");
+      const img = document.getElementById("randPoster");
+      const urls = posterUrls(movie.kp);
+      img.dataset.fallbacks = urls.slice(1).join("|");
+      img.style.display = "";
+      img.closest(".rand-poster") && img.closest(".rand-poster").classList.remove("has-img");
+      img.src = urls[0];
+      document.getElementById("randOverlay").hidden = false;
+    }
+
+    function openRandom(exceptId) {
+      const pool = randomPool(exceptId);
       if (!pool.length) {
-        alert("Все фильмы уже отмечены как просмотренные.");
+        document.getElementById("randOverlay").hidden = true;
+        alert("Непросмотренных фильмов по текущим фильтрам больше нет.");
         return;
       }
-      const pick = pool[(Math.random() * pool.length) | 0];
-      state.q = "";
-      $q.value = "";
-      state.filter = "all";
-      document.querySelectorAll("#filters .chip").forEach((c) => {
-        c.classList.toggle("active", c.dataset.filter === "all");
-      });
-      state.openId = pick.id;
-      render();
-      const card = $list.querySelector('.movie[data-id="' + pick.id + '"]');
-      if (card) {
-        card.classList.add("picked");
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
+      showRandomMovie(pool[(Math.random() * pool.length) | 0]);
+    }
+
+    document.getElementById("randomBtn").addEventListener("click", () => openRandom());
+    document.getElementById("randNext").addEventListener("click", () => openRandom(randCurrent && randCurrent.id));
+    document.getElementById("randPoster").addEventListener("load", function() {
+      this.closest(".rand-poster") && this.closest(".rand-poster").classList.add("has-img");
+    });
+    document.getElementById("randPoster").addEventListener("error", function() {
+      const rest = (this.dataset.fallbacks || "").split("|").filter(Boolean);
+      if (!rest.length) {
+        this.style.display = "none";
+        this.closest(".rand-poster") && this.closest(".rand-poster").classList.remove("has-img");
+        return;
       }
+      this.dataset.fallbacks = rest.slice(1).join("|");
+      this.src = rest[0];
+    });
+    document.getElementById("randClose").addEventListener("click", () => {
+      document.getElementById("randOverlay").hidden = true;
+    });
+    document.getElementById("randOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "randOverlay") document.getElementById("randOverlay").hidden = true;
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") document.getElementById("randOverlay").hidden = true;
     });
 
 
@@ -1545,6 +1770,7 @@ const KEY = "kinochecklist:v1";
       if (state.yearMin !== YEAR_MIN || state.yearMax !== YEAR_MAX) n++;
       if (state.timeMin !== TIME_MIN || state.timeMax !== TIME_MAX) n++;
       if (state.genres.size) n++;
+      if (state.country) n++;
       return n;
     }
 
@@ -1558,11 +1784,38 @@ const KEY = "kinochecklist:v1";
     const _render = render;
     render = function() { _render(); refreshFilterButton(); refreshToken(); };
 
+    function placeFilterPanel() {
+      const panel = document.getElementById("filterPanel");
+      if (!$wrap.classList.contains("open") || !panel) return;
+      const margin = 12;
+      const btn = $toggle.getBoundingClientRect();
+      panel.style.maxHeight = (window.innerHeight - margin * 2) + "px";
+      const pw = panel.offsetWidth;
+      const ph = panel.offsetHeight;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let left = btn.right - pw;
+      if (left < margin) left = margin;
+      if (left + pw > vw - margin) left = Math.max(margin, vw - pw - margin);
+      let top = btn.bottom + 8;
+      if (top + ph > vh - margin) {
+        const above = btn.top - 8 - ph;
+        if (above >= margin) top = above;
+        else top = margin;
+      }
+      panel.style.left = left + "px";
+      panel.style.right = "auto";
+      panel.style.top = top + "px";
+      panel.style.bottom = "auto";
+    }
+
     function setFiltersOpen(open) {
       $wrap.classList.toggle("open", open);
       $toggle.setAttribute("aria-expanded", open ? "true" : "false");
       document.body.style.overflow = open ? "hidden" : "";
+      if (open) requestAnimationFrame(placeFilterPanel);
     }
+    window.addEventListener("resize", placeFilterPanel);
     $toggle.addEventListener("click", (e) => {
       e.stopPropagation();
       setFiltersOpen(!$wrap.classList.contains("open"));
@@ -1586,7 +1839,9 @@ const KEY = "kinochecklist:v1";
       state.timeMin = TIME_MIN;
       state.timeMax = TIME_MAX;
       state.genres.clear();
+      state.country = "";
       document.querySelectorAll("#genres .chip").forEach((c) => c.classList.remove("active"));
+      document.querySelectorAll("#countries .chip").forEach((c) => c.classList.remove("active"));
       $sort.value = "rank";
       document.querySelectorAll("#filters .chip").forEach((c) => c.classList.toggle("active", c.dataset.filter === "all"));
       const yMin = document.getElementById("yearMin");
