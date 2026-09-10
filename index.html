@@ -704,8 +704,24 @@
       display: flex;
       gap: 10px;
       justify-content: flex-end;
+      align-items: center;
       margin-top: 16px;
       flex-wrap: wrap;
+    }
+    .rand-watch {
+      margin-right: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    .rand-watch.on { color: var(--ok); font-weight: 700; }
+    .rand-watch .check { color: transparent; }
+    .rand-watch.on .check {
+      background: var(--ok);
+      border-color: var(--ok);
+      color: #062015;
     }
     @media (max-width: 640px) {
       .rand-body { grid-template-columns: 1fr; }
@@ -999,6 +1015,10 @@
           </div>
         </div>
         <div class="rand-actions">
+          <label class="rand-watch">
+            <button class="check" id="randCheck" type="button" title="Отметить просмотренным" aria-label="Отметить просмотренным"></button>
+            <span>Смотрел</span>
+          </label>
           <button class="ghost random" id="randNext" type="button">Следующий фильм</button>
           <button class="ghost" id="randClose" type="button">Закрыть</button>
         </div>
@@ -1440,6 +1460,12 @@ const KEY = "kinochecklist:v1";
 
     let randCurrent = null;
 
+    function syncRandCheck() {
+      const on = !!(randCurrent && state.watched.has(randCurrent.id));
+      document.getElementById("randCheck").textContent = on ? "✓" : "";
+      document.querySelector(".rand-watch").classList.toggle("on", on);
+    }
+
     function showRandomMovie(movie) {
       randCurrent = movie;
       const f = FACTS[movie.kp] || FACTS[String(movie.kp)] || {};
@@ -1463,6 +1489,7 @@ const KEY = "kinochecklist:v1";
       img.style.display = "";
       img.closest(".rand-poster") && img.closest(".rand-poster").classList.remove("has-img");
       img.src = urls[0];
+      syncRandCheck();
       document.getElementById("randOverlay").hidden = false;
     }
 
@@ -1477,6 +1504,21 @@ const KEY = "kinochecklist:v1";
     }
 
     document.getElementById("randomBtn").addEventListener("click", () => openRandom());
+    document.getElementById("randCheck").addEventListener("click", () => {
+      if (!randCurrent) return;
+      const id = randCurrent.id;
+      if (state.watched.has(id)) state.watched.delete(id);
+      else state.watched.add(id);
+      save();
+      updateStats();
+      syncRandCheck();
+      const card = $list.querySelector('.movie[data-id="' + id + '"]');
+      if (card) {
+        card.classList.toggle("watched", state.watched.has(id));
+        const btn = card.querySelector(".check");
+        if (btn) btn.textContent = state.watched.has(id) ? "✓" : "";
+      } else if (state.filter !== "all") render();
+    });
     document.getElementById("randNext").addEventListener("click", () => openRandom(randCurrent && randCurrent.id));
     document.getElementById("randPoster").addEventListener("load", function() {
       this.closest(".rand-poster") && this.closest(".rand-poster").classList.add("has-img");
